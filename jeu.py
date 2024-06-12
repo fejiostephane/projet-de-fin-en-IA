@@ -106,3 +106,56 @@ class Unit:
 def generate_map(size):
     """Génère une carte de taille spécifiée."""
     return [[1 for _ in range(size)] for _ in range(size)]
+
+# Afficher la carte
+def draw_map(screen, game_map, tile_size):
+    """Affiche la carte."""
+    for y in range(len(game_map)):
+        for x in range(len(game_map[y])):
+            color = PASSABLE_COLOR
+            pygame.draw.rect(screen, color, (x * tile_size, y * tile_size, tile_size, tile_size))
+
+# Générer des unités sur des cases passables uniquement
+def generate_units():
+    """Génère les unités pour les joueurs et les ennemis."""
+    units = []
+    player_positions = [(0, i) for i in range(size)]
+    enemy_positions = [(size - 1, i) for i in range(size)]
+
+    player_positions = random.sample(player_positions, 7)
+    enemy_positions = random.sample(enemy_positions, 7)
+
+    player_units = [Unit(*pos, PLAYER_COLOR) for pos in player_positions]
+    enemy_units = [Unit(*pos, ENEMY_COLOR) for pos in enemy_positions]
+    
+    units.extend(player_units)
+    units.extend(enemy_units)
+    
+    return units
+
+# Ajouter des objectifs à la carte
+def add_objectives():
+    """Ajoute des objectifs à la carte."""
+    objectives = []
+    center_x, center_y = size // 2, size // 2
+    while True:
+        x, y = random.randint(center_x - 3, center_x + 3), random.randint(center_y - 3, center_y + 3)
+        if not any(obj['x'] == x and obj['y'] == y for obj in objectives):
+            objectives.append({'x': x, 'y': y, 'type': 'MAJOR'})
+            break
+
+    for _ in range(3):
+        while True:
+            x, y = random.randint(center_x - 5, center_x + 5), random.randint(center_y - 5, center_y + 5)
+            if not any(obj['x'] == x and obj['y'] == y for obj in objectives):
+                objectives.append({'x': x, 'y': y, 'type': 'MINOR'})
+                break
+
+    return objectives
+
+# Afficher les objectifs
+def draw_objectives(screen, objectives, tile_size):
+    """Affiche les objectifs sur la carte."""
+    for obj in objectives:
+        color = OBJECTIVE_MAJOR_COLOR if obj['type'] == 'MAJOR' else OBJECTIVE_MINOR_COLOR
+        pygame.draw.rect(screen, color, (obj['x'] * tile_size, obj['y'] * tile_size, tile_size, tile_size))
