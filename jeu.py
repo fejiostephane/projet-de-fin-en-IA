@@ -60,3 +60,49 @@ class Unit:
             if abs(self.x - x) <= 1 and abs(self.y - y) <= 1:
                 return True
         return False
+    
+    def move(self, x, y):
+        """Déplace l'unité vers une case spécifiée."""
+        self.x = x
+        self.y = y
+        self.moved = True
+
+    def attack(self, target_unit, units, objectives):
+        """Attaque une unité ennemie."""
+        if self.can_move(target_unit.x, target_unit.y):
+            dx = target_unit.x - self.x
+            dy = target_unit.y - self.y
+            new_x, new_y = target_unit.x + dx, target_unit.y + dy
+
+            if target_unit.attacked_this_turn:
+                target_unit.pv -= 1
+                target_unit.attacked_this_turn = False
+                if target_unit.pv <= 0:
+                    units.remove(target_unit)
+                    return
+                elif 0 <= new_x < size and 0 <= new_y < size:
+                    if any(u.x == new_x and u.y == new_y and u.color != target_unit.color for u in units) or any(obj['x'] == new_x and obj['y'] == new_y and obj['type'] == 'MAJOR' for obj in objectives):
+                        units.remove(target_unit)
+                    else:
+                        target_unit.move(new_x, new_y)
+            else:
+                if 0 <= new_x < size and 0 <= new_y < size:
+                    if any(u.x == new_x and u.y == new_y and u.color != target_unit.color for u in units) or any(obj['x'] == new_x and obj['y'] == new_y for obj in objectives):
+                        units.remove(target_unit)
+                    else:
+                        target_unit.move(new_x, new_y)
+                        target_unit.attacked_this_turn = True
+
+    def get_symbols_on_same_tile(self, units):
+        """Retourne les symboles des unités sur la même case."""
+        symbols = [u.get_symbol() for u in units if u.x == self.x and u.y == self.y]
+        return ' '.join(symbols)
+
+    def get_symbol(self):
+        """Retourne le symbole de l'unité."""
+        return "U"
+
+# Générer la carte
+def generate_map(size):
+    """Génère une carte de taille spécifiée."""
+    return [[1 for _ in range(size)] for _ in range(size)]
