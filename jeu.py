@@ -160,6 +160,38 @@ def draw_objectives(screen, objectives, tile_size):
         color = OBJECTIVE_MAJOR_COLOR if obj['type'] == 'MAJOR' else OBJECTIVE_MINOR_COLOR
         pygame.draw.rect(screen, color, (obj['x'] * tile_size, obj['y'] * tile_size, tile_size, tile_size))
 
+def ia(units, objectives):
+   
+    enemy_units = [unit for unit in units if unit.color == ENEMY_COLOR]
+    player_units = [unit for unit in units if unit.color == PLAYER_COLOR]
+
+    for unit in enemy_units:
+        best_move = None
+        best_score = -float('inf')
+
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                new_x, new_y = unit.x + dx, unit.y + dy
+
+                if 0 <= new_x < size and 0 <= new_y < size:
+                    if not any(u.x == new_x and u.y == new_y for u in units):
+                        score = evaluate_position(new_x, new_y, unit, units, objectives)
+                        if score > best_score:
+                            best_score = score
+                            best_move = (new_x, new_y)
+
+        
+        if best_move:
+            unit.move(*best_move)
+
+        
+        for target_unit in player_units:
+            if unit.can_move(target_unit.x, target_unit.y):
+                attack_score = evaluate_attack(unit, target_unit, units, objectives)
+                if attack_score > best_score:
+                    best_score = attack_score
+                    unit.attack(target_unit, units, objectives)
+
 def evaluate_position(x, y, unit, units, objectives):
     """Évalue la qualité d'une position donnée pour une unité."""
     score = 0
@@ -260,3 +292,101 @@ game_map = generate_map(size)
 units = generate_units()
 
 # Ajouter des objectifs
+
+objectives = add_objectives()
+
+selected_unit = None
+player_turn = True  # True pour le tour du joueur, False pour le tour de l'ennemi
+units_to_move = [unit for unit in units if (unit.color == PLAYER_COLOR if player_turn else unit.color == ENEMY_COLOR)]
+player_score = 0
+enemy_score = 0
+victory = False
+victory_message = ""
+
+# Boucle principale du jeu
+running = True
+while running:
+    if not victory:
+        unit_moved = False
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = event.pos
+                if end_turn_button_clicked((x, y), width, height, interface_height):
+                    unit_moved = True
+                else:
+                    grid_x, grid_y = x // tile_size, y // tile_size
+                    if event.button == 1:  # Clic gauche pour sélectionner
+                        possible_units = [u for u in units if u.x == grid_x and u.y == grid_y and not u.moved and u.color == (PLAYER_COLOR if player_turn else ENEMY_COLOR)]
+                        if selected_unit in possible_units:
+                            current_index = possible_units.index(selected_unit)
+                            selected_unit.selected = False
+                            selected_unit = possible_units[(current_index + 1) % len(possible_units)]
+                        else:
+                            if selected_unit:
+                                selected_unit.selected = False
+                            if possible_units:
+                                selected_unit = possible_units[0]
+                        if selected_unit:
+                            selected_unit.selected = True
+                    elif event.button == 3:  # Clic droit pour déplacer ou attaquer
+                        if selected_unit and selected_unit.color == (PLAYER_COLOR if player_turn else ENEMY_COLOR):
+                            target_unit = [u for u in units if u.x == grid_x and u.y == grid_y and u.color != selected_unit.color]
+                            
+                            for cible in target_unit:                                
+                                selected_unit.attack(cible, units, objectives)
+                                
+                            if selected_unit.can_move(grid_x, grid_y):
+                                selected_unit.move(grid_x, grid_y)
+                                selected_unit.selected = False
+                                selected_unit = None
+
+        if unit_moved:
+            for unit in units_to_move:
+                unit.moved = False  # Réinitialiser l'indicateur de mouvement
+                unit.attacked_this_turn = False  # Réinitialiser l'indicateur d'attaque
+            player_turn = not player_turn
+            units_to_move = [unit for unit in units if (unit.color == PLAYER_COLOR if player_turn else unit.color == ENEMY_COLOR)]
+            player_score_turn, enemy_score_turn = calculate_scores(units, objectives)
+            player_score += player_score_turn
+            enemy_score += enemy_score_turn
+
+            if not player_turn:
+                # Lancer l'IA si c'est le tour de l'ennemi
+                ia(units, objectives)
+
+            if player_score >= 500:
+                victory = True
+                victory_message = "Victoire Joueur!"
+            elif enemy_score >= 500:
+                victory = True
+                victory_message = "Victoire Ennemi!"
+            elif not any(unit.color == PLAYER_COLOR for unit in units):
+                victory = True
+                victory_message = "Victoire Ennemi!"
+            elif not any(unit.color == ENEMY_COLOR for unit in units):
+                victory = True
+                victory_message = "Victoire Joueur!"
+
+            pygame.display.flip()
+            pygame.time.wait(500)
+
+    screen.fill((0, 0, 0))
+    draw_map(screen, game_map, tile_size)
+    draw_objectives(screen, objectives, tile_size) 
+    
+    for unit in units:
+        unit.draw(screen, units, objectives)
+
+    draw_turn_indicator(screen, player_turn)
+    draw_end_turn_button(screen, width, height, interface_height)
+    draw_unit_attributes(screen, selected_unit, width, height, interface_height)
+    draw_scores(screen, player_score, enemy_score, width, height)
+
+    if victory:
+        draw_victory_message(screen, victory_message, width, height)
+
+    pygame.display.flip()
+
+pygame.quit()
