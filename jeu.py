@@ -159,3 +159,104 @@ def draw_objectives(screen, objectives, tile_size):
     for obj in objectives:
         color = OBJECTIVE_MAJOR_COLOR if obj['type'] == 'MAJOR' else OBJECTIVE_MINOR_COLOR
         pygame.draw.rect(screen, color, (obj['x'] * tile_size, obj['y'] * tile_size, tile_size, tile_size))
+
+def evaluate_position(x, y, unit, units, objectives):
+    """Évalue la qualité d'une position donnée pour une unité."""
+    score = 0
+    distance_to_nearest_enemy = min(abs(unit.x - u.x) + abs(unit.y - u.y) for u in units if u.color != unit.color)
+    distance_to_nearest_objective = min(abs(x - obj['x']) + abs(y - obj['y']) for obj in objectives)
+    
+    score -= distance_to_nearest_enemy  # Plus la distance est petite, mieux c'est
+    score += 2 * (1 / (1 + distance_to_nearest_objective))  # Inverser la distance aux objectifs
+
+    if any(obj['x'] == x and obj['y'] == y and obj['type'] == 'MAJOR' for obj in objectives):
+        score += 5  # Bonus pour se déplacer vers un objectif majeur
+
+    return score
+
+def evaluate_attack(attacker, target, units, objectives):
+    """Évalue la qualité d'une attaque."""
+    score = 0
+    if target.pv == 1:
+        score += 10  # Bonus pour éliminer une unité
+    score += 5  # Bonus pour toute attaque
+    return score
+
+# Calcule les scores des joueurs et des ennemis en fonction des objectifs contrôlés
+def calculate_scores(units, objectives):
+    """Calcule les scores des joueurs et des ennemis en fonction des objectifs contrôlés."""
+    player_score = 0
+    enemy_score = 0
+
+    for obj in objectives:
+        if any(unit.x == obj['x'] and unit.y == obj['y'] and unit.color == PLAYER_COLOR for unit in units):
+            player_score += 3 if obj['type'] == 'MAJOR' else 1
+        elif any(unit.x == obj['x'] and unit.y == obj['y'] and unit.color == ENEMY_COLOR for unit in units):
+            enemy_score += 3 if obj['type'] == 'MAJOR' else 1
+
+    return player_score, enemy_score
+
+# Afficher le message de changement de tour
+def draw_turn_indicator(screen, player_turn):
+    """Affiche l'indicateur de tour."""
+    font = pygame.font.SysFont(None, 36)
+    text = "Joueur" if player_turn else "Ennemi"
+    img = font.render(text, True, (255, 255, 255))
+    screen.blit(img, (10, 10))
+
+# Afficher le bouton de changement de tour
+def draw_end_turn_button(screen, width, height, interface_height):
+    """Affiche le bouton de fin de tour."""
+    font = pygame.font.SysFont(None, 36)
+    text = font.render("Terminé", True, (255, 255, 255))
+    button_rect = pygame.Rect(width // 2 - 50, height, 100, interface_height - 10)
+    pygame.draw.rect(screen, (100, 100, 100), button_rect)
+    screen.blit(text, (width // 2 - 50 + 10, height + 10))
+
+# Vérifier si le bouton de changement de tour est cliqué
+def end_turn_button_clicked(mouse_pos, width, height, interface_height):
+    """Vérifie si le bouton de fin de tour a été cliqué."""
+    x, y = mouse_pos
+    button_rect = pygame.Rect(width // 2 - 50, height, 100, interface_height - 10)
+    return button_rect.collidepoint(x, y)
+
+# Afficher les attributs de l'unité sélectionnée
+def draw_unit_attributes(screen, unit, width, height, interface_height):
+    """Affiche les attributs de l'unité sélectionnée."""
+    if unit:
+        font = pygame.font.SysFont(None, 24)
+        pv_text = f"PV: {unit.pv} / 2"
+        unit_img = font.render("Unité", True, (255, 255, 255))
+        pv_img = font.render(pv_text, True, (255, 255, 255))
+        screen.blit(unit_img, (10, height + 10))
+        screen.blit(pv_img, (10, height + 40))
+
+# Afficher les scores
+def draw_scores(screen, player_score, enemy_score, width, height):
+    """Affiche les scores des joueurs."""
+    font = pygame.font.SysFont(None, 24)
+    player_score_text = f"Score Joueur: {player_score}"
+    enemy_score_text = f"Score Ennemi: {enemy_score}"
+    player_score_img = font.render(player_score_text, True, (255, 255, 255))
+    enemy_score_img = font.render(enemy_score_text, True, (255, 255, 255))
+    screen.blit(player_score_img, (10, height + 70))
+    screen.blit(enemy_score_img, (width - 150, height + 70))
+
+# Afficher le message de victoire
+def draw_victory_message(screen, message, width, height):
+    """Affiche le message de victoire."""
+    font = pygame.font.SysFont(None, 48)
+    victory_img = font.render(message, True, (255, 255, 255))
+    screen.blit(victory_img, (width // 2 - 100, height // 2 - 24))
+
+# Configuration de la fenêtre
+screen = pygame.display.set_mode((width, height + interface_height))
+pygame.display.set_caption("Carte de 20x20 avec unités et déplacement")
+
+# Générer une carte de 20 par 20
+game_map = generate_map(size)
+
+# Générer les unités
+units = generate_units()
+
+# Ajouter des objectifs
