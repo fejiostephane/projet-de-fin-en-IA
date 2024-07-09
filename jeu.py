@@ -183,7 +183,6 @@ def ia(units, objectives):
         
         if best_move:
             unit.move(*best_move)
-
         
         for target_unit in player_units:
             if unit.can_move(target_unit.x, target_unit.y):
